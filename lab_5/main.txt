@@ -1,0 +1,176 @@
+
+
+% 3
+% 2
+% 1 2 3
+
+
+%% начальное состояние
+init([2/1,1/2,1/3,3/3,3/2,3/1,2/2,1/1,2/3]).
+
+% конечное состояние
+goal([2/2,1/3,2/3,3/3,3/2,3/1,2/1,1/1,1/2]).
+
+% s [ node, SuccessorNode, Cost]
+s( [Empty | Tiles], [Tile | Tilesl], 1) :- % Стоимости всех дуг равны 1
+swap( Empty, Tile, Tiles, Tilesl). % Поменять местами пустую фишку Empty и фишку Tile в списке Tiles
+
+swap(Empty, Tile, [Tile | Ts], [Empty | Ts] ) :-
+mandist( Empty, Tile, 1). % Манхэттенское расстояние равно 1
+swap( Empty, Tile, [Tl | Ts], [Tl | Tsl] ) :-
+swap(Empty, Tile, Ts, Tsl).
+mandist( X/Y, Xl/Yl, D) :- % D - это манхэттенское расстояние между двумя клетками
+dif(X, Xl, Dx),
+dif(Y, Yl , Dy) ,
+D is Dx + Dy.
+
+dif( A, B, D) :-
+D is A-B, D >=0, !;
+D is B-A.
+
+% Эвристическая оценка h представляет собой сумму расстояний от каждой фишки
+% до ее "исходной" клетки плис утроенное значение "оценки упорядоченности"
+h([_ | Tiles], H) :-
+goal( [_ | GoalSquares] ),
+total_distance( Tiles, GoalSquares, D), % Суммарное расстояние от исходных клеток
+seq( Tiles, S), % Оценка упорядоченности
+H is D + 3*S.
+
+total_distance( [], [], 0).
+total_distance( [Tile | Tiles], [Square | Squares], D) :-
+mandist( Tile, Square, Dl),
+total_distance( Tiles, Squares, D2),
+D is Dl + D2.
+% seq( TilePositions, Score): оценка упорядоченности
+seq( [First | OtherTiles], S) :-
+seq( [First | OtherTiles ], First, S).
+
+seq( [Tilel, Tile2 | Tiles], First, S) :-
+score( Tilel, Tile2, SI),
+seq( [Tile2 | Tiles], First, S2),
+S is SI + S2.
+
+seq( [Last], First, S) :-
+score( Last, First, S).
+
+score( 2/2, _, 1):- !. % Оценка фишки, стоящей в центре, равна 1
+score( 1/3, 2/3, 0):-! . % Оценка фишки, за которой следует
+% допустимый преемник, равна 0
+score( 2/3, 3/3, 0) :- ! .
+score( 3/3,3/2,0) :- !.
+score( 3/2, 3/1, 0) :- !.
+score( 3/1, 2/1, 0) :- !.
+score( 2/1, 1/1, 0) :- !.
+score(1/1,1/2,0) :- !.
+score( 1/2, 1/3, 0) :- !.
+score( _, _, 2). % Оценка фишкк, за которой следует * недопустимый преемник, равна 2
+
+
+bestfirst(Start, Solution) :-
+    rbfs([], [ (Start, 0/0/0) ], 99999, _, yes, Solution).
+
+
+
+
+rbfs(_, [ (_, _/_/FF) | _], Bound, FF, no, _) :-
+    FF > Bound, !.
+                     
+                   
+
+rbfs(Path, [ (Node, _/F/FF) | _], _, _, yes, [Node | Path]) :-
+    F = FF,     
+   goal(Node).
+
+rbfs(_, [], _, _, never, _) :- !.   
+
+rbfs(Path, [ (Node, G/F/FF) | Ns], Bound, NewFF, Solved, Sol) :-
+    FF =< Bound,                    
+    findall(Child/Cost, 
+            (s(Node, Child, Cost), \+ member(Child, Path)),
+            Children),
+    inherit(F, FF, InheritedFF),    
+    succlist(G, InheritedFF, Children, SuccNodes),  
+    bestff(Ns, NextBestFF),        
+    min(Bound, NextBestFF, Bound2), !,
+    rbfs([Node | Path], SuccNodes, Bound2, NewFF2, Solved2, Sol),
+    continue(Path, [(Node,G/F/NewFF2)|Ns], Bound, NewFF, Solved2, Solved, Sol).
+
+
+
+
+
+continue(Path, [_ | Ns], Bound, NewFF, never, Solved, Sol) :- !,
+    rbfs(Path, Ns, Bound, NewFF, Solved, Sol).
+
+continue(_, _, _, _, yes, yes, _).
+
+continue(Path, [ N | Ns], Bound, NewFF, no, Solved, Sol) :-
+    insert(N, Ns, NewNs), !,        
+    rbfs(Path, NewNs, Bound, NewFF, Solved, Sol).
+
+
+
+succlist(_, _, [], []).
+
+succlist(G0, InheritedFF, [Node/C | NCs], Nodes) :-
+    G is G0 + C,
+    h(Node, H),
+    F is G + H,
+    max(F, InheritedFF, FF),
+    succlist(G0, InheritedFF, NCs, Nodes2),
+    insert((Node, G/F/FF), Nodes2, Nodes).
+
+
+
+inherit(F, FF, FF) :-               
+    FF > F, !.                    
+
+inherit(_, _, 0).
+
+
+
+insert((N, G/F/FF), Nodes, [ (N, G/F/FF) | Nodes]) :-
+    bestff(Nodes, FF2),
+    FF =< FF2, !.
+
+insert(N, [N1 | Ns], [N1 | Ns1]) :-
+    insert(N, Ns, Ns1).
+
+
+
+bestff([ (_, _/_/FF) | _], FF).     
+bestff([], 99999).                  
+
+
+min(X, Y, X) :-
+    X  =<  Y, !.
+min(_, Y, Y).
+
+
+max(X, Y, X) :-
+    X  >=  Y, !.
+max(_, Y, Y).
+
+show_solution( [] ).
+show_solution( [P | L] ) :-
+show_solution( L),
+nl, write("____"),
+show_position(P).
+
+show_position( [S0,S1,S2,S3,S4,S5,S6,S7,S8] ) :-
+member( Y, [3,2,1] ),
+nl, member( X, [1,2,3] ),
+member( Tile-X/Y, [" "-S0,1-S1,2-S2,3-S3,4-S4,5-S5,6-S6,7-S7,8-S8] ),
+write(Tile),
+fail.
+show_position(_).
+
+% вхідна точка програми
+go(Path) :- init(Start),
+  bestfirst(Start,Path), show_solution(Path).
+
+/** <examples>
+
+?- go(Path).
+
+*/

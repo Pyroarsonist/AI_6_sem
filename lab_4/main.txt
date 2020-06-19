@@ -1,0 +1,103 @@
+% початковий стан
+init([table,chair,wardrobe,
+  chair_2,nothing,armchair]).
+
+% кінцеві стани
+goal([table,chair,armchair,
+  chair_2, nothing,wardrobe]).
+
+goal([table,armchair,chair,
+  chair_2, nothing,wardrobe]).
+
+% можливі переміщення
+
+move([X1,nothing,X2,
+    X3,X4,X5],
+  [nothing,X1,X2,
+    X3,X4,X5]).
+move([X1,X2,nothing,
+    X3,X4,X5],
+  [X1,nothing,X2,
+    X3,X4,X5]).
+
+move([X1,nothing,X2,
+    X3,X4,X5],
+  [X1,X2,nothing,
+    X3,X4,X5]).
+move([nothing,X1,X2,
+    X3,X4,X5],
+  [X1,nothing,X2,
+    X3,X4,X5]).
+
+move([X3,X4,X5,
+    X1,nothing,X2],
+  [X3,X4,X5,
+    nothing,X1,X2]).
+move([X3,X4,X5,
+    X1,X2,nothing],
+  [X3,X4,X5,
+    X1,nothing,X2]).
+
+move([X3,X4,X5,
+    X1,nothing,X2],
+  [X3,X4,X5,
+    X1,X2,nothing]).
+move([X3,X4,X5,
+    nothing,X1,X2],
+  [X3,X4,X5,
+    X1,nothing,X2]).
+
+move([nothing,X1,X2,
+    X3,X4,X5],
+  [X3,X1,X2,
+    nothing,X4,X5]).
+move( [X3,X1,X2,
+    nothing,X4,X5],
+     [nothing,X1,X2,
+    X3,X4,X5]).
+
+move([X1,nothing,X2,
+    X3,X4,X5],
+  [X1,X4,X2,
+    X3,nothing,X5]).
+move([X1,X4,X2,
+    X3,nothing,X5],
+     [X1,nothing,X2,
+    X3,X4,X5]
+ ).
+
+move([X1,X2,nothing,
+    X3,X4,X5],
+  [X1,X2,X5,
+    X3,X4,nothing]).
+move([X1,X2,X5,
+    X3,X4,nothing],
+     [X1,X2,nothing,
+    X3,X4,X5]).
+
+
+
+% умова вирішення задачі
+dls(S, Path, Path, Limit) :- Limit > 0, goal(S).
+% умова закінчення пошуку в глубину при досяганні ліміту
+dls(_, Path, Path, Limit) :- Limit = 0, !, fail.
+
+% умова пошуку в глубину
+dls(S, Checked, Path, Limit) :-
+    DecrementedLimit is Limit-1,
+    % try a move
+    move(S, S2),
+    % ensure the resulting state is new
+    \+member(S2, Checked),
+    % and that this state leads to the goal
+    dls(S2, [S2|Checked], Path, DecrementedLimit).
+
+% вхідна точка програми
+go(Path, Limit) :- init(X),
+  dls(X,[], Path, Limit).
+
+/** <examples>
+
+?- go(Path, 10).
+
+*/

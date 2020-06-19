@@ -1,0 +1,123 @@
+(deftemplate puzzle
+	(slot ID (type INTEGER) (range 1 6)) 
+	(slot Used (type SYMBOL) (allowed-values yes no))
+	(slot Number (type INTEGER) (range 1 6))
+)
+
+(deftemplate step 
+	(slot from (type INTEGER) (range 1 6))
+	(multislot to (type INTEGER) (range 1 6))
+)
+
+(deftemplate state
+	(slot ID (type INTEGER) (default 0))
+	(multislot numbers (default 0 0 0 0 0 0))
+	(slot last (type SYMBOL) (allowed-values yes no))
+	(slot status (type SYMBOL) (allowed-values open closed))
+)	
+
+(deffacts states
+	(state (ID 0) (last yes))
+)
+
+
+;    ID
+; 2  3   4
+; 1 0(6) 5
+
+(deffacts Puzzle-facts
+	(puzzle (ID 1) (Used yes) (Number 1))
+	(puzzle (ID 2) (Used yes) (Number 2))
+	(puzzle (ID 3) (Used yes) (Number 3))
+	(puzzle (ID 4) (Used yes) (Number 5))
+	(puzzle (ID 5) (Used yes) (Number 4))
+	(puzzle (ID 6) (Used no))
+	(step (from 1) (to 2 6))
+	(step (from 2) (to 1 3))
+	(step (from 3) (to 2 4 6))
+	(step (from 4) (to 3 5))
+	(step (from 5) (to 4 6))
+	(step (from 6) (to 1 3 5))
+)
+
+
+(defrule move 
+	?from<-(puzzle (ID ?from_id) (Used yes) (Number ?num))
+	?to<-(puzzle (ID ?to_id) (Used no) (Number ~?num))
+	(step (from ?from_id) (to $?to_items))
+	?st<-(state (last yes) (ID ?state_id) (numbers $?some_nums))
+	(test (member$ ?to_id $?to_items))
+	(forall (state (ID ~?state_id) (numbers $?nums&~$?some_nums))
+	(test (neq (replace$ (replace$ $?some_nums ?to_id ?to_id ?num) ?from_id ?from_id 0) ?nums)))
+		=>
+	(modify ?st (last no))
+	(assert (state (last yes) (ID (+ ?state_id 1))))(modify ?from (Used no))(modify ?to (Used yes) (Number ?num))
+)
+
+
+; 2  3   5
+; 1 0(6) 4
+
+; TO
+
+; 2  3   4
+; 1 0(6) 5
+
+(defrule finish	
+?p1<-(puzzle (ID ?id1&1)(Number ?id1))
+?p2<-(puzzle (ID ?id2&2)(Number ?id2))
+?p3<-(puzzle (ID ?id3&3)(Number ?id3))
+?p4<-(puzzle (ID ?id4&4)(Number ?id4))
+?p5<-(puzzle (ID ?id5&5)(Number ?id5))
+?p6<-(puzzle (ID ?id6&6))
+	=>
+(printout t ?id1 "||" ?id1 crlf)(printout t ?id2 "||" ?id2 crlf)(printout t ?id3 "||" ?id3 crlf)(printout t ?id4 "||" ?id4 crlf)(printout t ?id5 "||" ?id5 crlf)(printout t ?id6 "||" "0" crlf)
+(halt)
+)
+
+(defrule movefirst
+	?from<-(puzzle (ID ?from_id) (Used yes) (Number ?num))
+	?to<-(puzzle (ID ?to_id) (Used no) (Number ~?num))
+	(step (from ?from_id) (to $?to_items))
+	?st<-(state (last yes) (ID ?state_id) (numbers $?some_nums))
+	(forall (state (ID 0) (numbers $?nums)) (state (ID 0) (numbers $?some_nums)))
+		=>
+	(modify ?st (last no) (status closed))
+	(modify ?from (Used no))
+	(modify ?to (Used yes) (Number ?num))
+	(assert (state (last yes) (ID (+ ?state_id 1))))
+)
+
+
+(defrule savestate
+	(declare (salience 10))
+	?p<-(puzzle (ID ?id) (Used yes) (Number ?num))
+	?st<-(state (last yes) (numbers $?nums))
+	(not (test (member$ ?num ?nums)))
+		=>
+	(bind ?nums (delete$ ?nums ?id ?id))
+	(bind ?nums (insert$ ?nums ?id ?num))
+	(modify ?st (numbers ?nums) (status open))
+)
+
+(defrule reinit
+	(declare (salience -1))
+	?p1<-(puzzle (ID 1))
+	?p2<-(puzzle (ID 2))
+	?p3<-(puzzle (ID 3))
+	?p4<-(puzzle (ID 4))
+	?p5<-(puzzle (ID 5))
+	?p6<-(puzzle (ID 6))
+	?last_st<-(state (ID ?x1) (last yes))
+	?st0<-(state (ID ?x2&:(= ?x2 (- ?x1 2))) (numbers $?nums))
+		=>
+	(modify ?st0 (last yes))
+	(modify ?last_st (last no))
+	(modify ?p1 (Used yes) (Number (nth$ 1 ?nums)))
+	(modify ?p2 (Used yes) (Number (nth$ 2 ?nums)))
+	(modify ?p3 (Used yes) (Number (nth$ 3 ?nums)))
+	(modify ?p4 (Used yes) (Number (nth$ 4 ?nums)))  
+	(modify ?p5 (Used yes) (Number (nth$ 5 ?nums)))
+	(modify ?p6 (Used no))
+)
+	
